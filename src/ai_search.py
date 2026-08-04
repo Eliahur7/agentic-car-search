@@ -21,6 +21,9 @@ def parse_search_query(query: str, previous_params: dict = None):
             "model": None,
             "budget": None,
             "mileage": None,
+            "condition": None,
+            "zip_code": None,
+            "trade_in": None,
             "features": [],
             "body_style": None,
             "accident_history": None
@@ -45,6 +48,9 @@ def parse_search_query(query: str, previous_params: dict = None):
                 "model": string or null,
                 "budget": integer or null (e.g., if "under 30k" -> 30000),
                 "mileage": integer or null (e.g., if "under 40k miles" -> 40000),
+                "condition": string or null ("New", "Used", or "Certified Pre-Owned"),
+                "zip_code": string or null (5-digit zip code e.g. "53024"),
+                "trade_in": string or null (e.g. "Yes" or vehicle details if specified),
                 "features": list of strings (map synonyms to: "adaptive cruise", "touchscreen", "ventilated seats", "heated seats", "towing package", "leather", "apple carplay", "third row", "sunroof", "awd"),
                 "body_style": string or null (e.g. "SUV", "Sedan", "Truck", "Wagon", "Coupe", "Sports Car", "Convertible"),
                 "accident_history": string or null (e.g. "Clean")
@@ -146,10 +152,47 @@ def parse_search_query(query: str, previous_params: dict = None):
     if "clean" in query_lower and ("accident" in query_lower or "history" in query_lower):
         params["accident_history"] = "Clean"
         
+    # 6. Condition (New vs Used vs CPO)
+    if "brand new" in query_lower or " new car" in query_lower or query_lower.startswith("new "):
+        params["condition"] = "New"
+    elif "cpo" in query_lower or "certified" in query_lower:
+        params["condition"] = "Certified Pre-Owned"
+    elif "used" in query_lower or "pre-owned" in query_lower or "second hand" in query_lower:
+        params["condition"] = "Used"
+
+    # 7. Zip Code Extraction (5-digit postal code)
+    zip_match = re.search(r'\b(\d{5})\b', query)
+    if zip_match:
+        params["zip_code"] = zip_match.group(1)
+
+    # 8. Trade-In Detection
+    if "trade" in query_lower or "trading" in query_lower or "trade-in" in query_lower:
+        params["trade_in"] = "Yes"
+
     # Deduplicate features
     params["features"] = list(set(params["features"]))
         
     return params
+
+def generate_followup_questions(params: dict) -> list:
+    """
+    Generates intelligent follow-up questions based on missing key search criteria.
+    """
+    questions = []
+    
+    if not params.get("condition"):
+        questions.append("Are you looking for a **New**, **Used**, or **Certified Pre-Owned** vehicle?")
+        
+    if not params.get("zip_code"):
+        questions.append("What is your **Zip Code** so I can prioritize nearby dealer inventory?")
+        
+    if not params.get("trade_in"):
+        questions.append("Are you planning to **trade in** a vehicle towards this purchase?")
+        
+    if not params.get("budget"):
+        questions.append("Do you have a specific **maximum budget** or monthly payment target in mind?")
+        
+    return questions
 
 def filter_inventory(df, params):
     """
