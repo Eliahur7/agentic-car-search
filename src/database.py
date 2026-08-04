@@ -267,18 +267,20 @@ def get_inventory():
     # Generate a precise, deep-search listing URL per car based on its source
     def make_listing_url(row):
         make = row['make'].lower()
-        model = row['model'].lower().replace(' ', '-').replace('/', '-')
+        # Normalize model: lowercase, replace spaces and slashes with hyphens
+        model = row['model'].lower().replace(' ', '-').replace('/', '-').replace('.', '')
         year = row['year']
         price = row['price']
         mileage = row['mileage']
         source = row['source']
 
         if source == "CarGurus":
+            # CarGurus search URL - filters by year, make, model, price, mileage
             return (
                 f"https://www.cargurus.com/Cars/inventorylisting/viewDetailsFilterViewInventoryListing.action"
                 f"?zip=&showNegotiable=false&sortDir=ASC&distance=200&sortType=PRICE"
-                f"&startYear={year}&endYear={year}&maxPrice={price}"
-                f"&entitySelectingHelper.selectedEntity={row['make']}"
+                f"&startYear={year}&endYear={year}&maxPrice={price}&maxMileage={mileage}"
+                f"&automotive_score_filter=0&make={row['make']}&model={row['model']}"
             )
         elif source == "Autotrader":
             return (
@@ -291,17 +293,21 @@ def get_inventory():
                 f"?maximum_mileage={mileage}&price_max={price}&year_max={year}&year_min={year}"
             )
         elif source == "Dealer Direct":
+            # Route to Autotrader which has the clearest URL format
             return (
-                f"https://www.google.com/search?q={year}+{row['make']}+{row['model']}+{row['trim']}+"
-                f"used+dealer+for+sale&tbs=qdr:m"
+                f"https://www.autotrader.com/cars-for-sale/used-cars/{make}/{model}/"
+                f"?startYear={year}&endYear={year}&maxMileage={mileage}&maxPrice={price}&numRecords=25"
             )
         elif source == "Manufacturer CPO":
             return (
                 f"https://www.autotrader.com/cars-for-sale/certified-used-cars/{make}/{model}/"
-                f"?startYear={year}&endYear={year}&maxMileage={mileage}"
+                f"?startYear={year}&endYear={year}&maxMileage={mileage}&maxPrice={price}"
             )
         else:
-            return f"https://www.google.com/search?q={year}+{row['make']}+{row['model']}+for+sale"
+            return (
+                f"https://www.autotrader.com/cars-for-sale/used-cars/{make}/{model}/"
+                f"?startYear={year}&endYear={year}&maxMileage={mileage}&maxPrice={price}"
+            )
     
     df['listing_url'] = df.apply(make_listing_url, axis=1)
     return df
