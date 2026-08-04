@@ -260,6 +260,51 @@ def get_inventory():
             "features": ["leather", "apple carplay", "touchscreen"],
             "color": "Black",
             "image_url": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+            "id": "V018",
+            "make": "BMW",
+            "model": "X5",
+            "year": 2024,
+            "price": 62500,
+            "mileage": 12000,
+            "trim": "xDrive40i",
+            "body_style": "SUV",
+            "source": "CarGurus",
+            "accident_history": "Clean",
+            "features": ["adaptive cruise", "ventilated seats", "panoramic sunroof", "premium audio", "awd", "leather", "apple carplay"],
+            "color": "Black",
+            "image_url": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+            "id": "V019",
+            "make": "Toyota",
+            "model": "Highlander",
+            "year": 2025,
+            "price": 46000,
+            "mileage": 5000,
+            "trim": "Hybrid Limited",
+            "body_style": "SUV",
+            "source": "Autotrader",
+            "accident_history": "Clean",
+            "features": ["adaptive cruise", "touchscreen", "leather", "apple carplay", "third row", "sunroof", "awd"],
+            "color": "Silver",
+            "image_url": "https://images.unsplash.com/photo-1619682817481-e994891cd1f5?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+            "id": "V020",
+            "make": "Porsche",
+            "model": "911",
+            "year": 2024,
+            "price": 128000,
+            "mileage": 4000,
+            "trim": "Carrera S",
+            "body_style": "Sports Car",
+            "source": "Dealer Direct",
+            "accident_history": "Clean",
+            "features": ["leather", "apple carplay", "heated seats", "ventilated seats"],
+            "color": "White",
+            "image_url": "https://images.unsplash.com/photo-1503376712351-1f2a33503b87?auto=format&fit=crop&w=400&q=80"
         }
     ]
     df = pd.DataFrame(data)

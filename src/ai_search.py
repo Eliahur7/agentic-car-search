@@ -19,6 +19,8 @@ def parse_search_query(query: str, previous_params: dict = None):
         params = {
             "make": None,
             "model": None,
+            "min_year": None,
+            "max_year": None,
             "budget": None,
             "mileage": None,
             "condition": None,
@@ -44,8 +46,10 @@ def parse_search_query(query: str, previous_params: dict = None):
             
             JSON schema:
             {{
-                "make": string or null (e.g. "Toyota", "Honda", "Porsche"),
-                "model": string or null,
+                "make": string or null (e.g. "Toyota", "Honda", "Porsche", "BMW"),
+                "model": string or null (e.g. "X5", "Highlander", "CR-V", "Corvette", "911", "Model 3"),
+                "min_year": integer or null (e.g., if "2024-2026" -> 2024),
+                "max_year": integer or null (e.g., if "2024-2026" -> 2026),
                 "budget": integer or null (e.g., if "under 30k" -> 30000),
                 "mileage": integer or null (e.g., if "under 40k miles" -> 40000),
                 "condition": string or null ("New", "Used", or "Certified Pre-Owned"),
@@ -79,8 +83,8 @@ def parse_search_query(query: str, previous_params: dict = None):
     # 1. Budget Extraction (e.g. "under 30k", "under $30,000", "< 30000")
     budget_match = re.search(r'\$(\d{1,3}(?:,\d{3})*|\d+)(k)?', query_lower)
     if not budget_match:
-        # Prevent backtracking into the middle of a number by ensuring it's not followed by a digit or comma
-        budget_match = re.search(r'(?:budget|under|<|less than)\s*(\d{1,3}(?:,\d{3})*|\d+)(k)?(?!\s*miles|[\d,])', query_lower)
+        # Prevent backtracking into 'k miles' or digits/commas
+        budget_match = re.search(r'(?:budget|under|<|less than)\s*(\d{1,3}(?:,\d{3})*|\d+)(k)?(?!\s*miles|\s*k\s*miles|[\d,k])', query_lower)
         
     if budget_match:
         val = budget_match.group(1).replace(',', '')
@@ -141,12 +145,59 @@ def parse_search_query(query: str, previous_params: dict = None):
             params["body_style"] = style
             break
             
-    # Make extraction (basic)
-    makes = ["toyota", "honda", "ford", "tesla", "hyundai", "kia", "chevrolet", "subaru", "bmw", "volkswagen", "porsche", "audi", "mercedes"]
-    for make in makes:
-        if re.search(r'\b' + make + r'\b', query_lower):
-            params["make"] = make.capitalize()
+    # Make & Model Extraction (regex heuristic)
+    makes_models = {
+        "BMW": ["bmw"],
+        "Toyota": ["toyota"],
+        "Honda": ["honda"],
+        "Ford": ["ford"],
+        "Tesla": ["tesla"],
+        "Hyundai": ["hyundai"],
+        "Kia": ["kia"],
+        "Chevrolet": ["chevrolet", "chevy"],
+        "Subaru": ["subaru"],
+        "Volkswagen": ["volkswagen", "vw"],
+        "Porsche": ["porsche"]
+    }
+    for make_name, patterns in makes_models.items():
+        if any(re.search(r'\b' + p + r'\b', query_lower) for p in patterns):
+            params["make"] = make_name
             break
+
+    known_models = {
+        "X5": ["x5"],
+        "Highlander": ["highlander"],
+        "CR-V": ["cr-v", "crv"],
+        "F-150": ["f-150", "f150"],
+        "RAV4": ["rav4"],
+        "Model 3": ["model 3", "model3"],
+        "Palisade": ["palisade"],
+        "Telluride": ["telluride"],
+        "Tahoe": ["tahoe"],
+        "Outback": ["outback"],
+        "Pilot": ["pilot"],
+        "Sorento": ["sorento"],
+        "Tiguan": ["tiguan"],
+        "911": ["911"],
+        "Corvette": ["corvette", "vette"],
+        "Mustang": ["mustang"]
+    }
+    for model_name, patterns in known_models.items():
+        if any(re.search(r'\b' + p + r'\b', query_lower) for p in patterns):
+            params["model"] = model_name
+            break
+
+    # Year Range Extraction (e.g. "2024-2026", "2024 to 2026", "2022")
+    year_range_match = re.search(r'\b(20[0-2][0-9])\s*[-–to]+\s*(20[0-2][0-9])\b', query_lower)
+    if year_range_match:
+        params["min_year"] = int(year_range_match.group(1))
+        params["max_year"] = int(year_range_match.group(2))
+    else:
+        single_year_match = re.search(r'\b(20[0-2][0-9])\b', query_lower)
+        if single_year_match and not params.get("min_year"):
+            y = int(single_year_match.group(1))
+            params["min_year"] = y
+            params["max_year"] = y
 
     # 5. Accident History
     if "clean" in query_lower and ("accident" in query_lower or "history" in query_lower):
@@ -197,34 +248,57 @@ def generate_followup_questions(params: dict) -> list:
 def filter_inventory(df, params):
     """
     Filters the pandas dataframe based on extracted parameters.
+    If strict filtering returns 0 matches, performs relaxed matching so the user gets helpful recommendations.
     """
-    filtered_df = df.copy()
+    def apply_filters(input_df, p_dict):
+        f_df = input_df.copy()
+        
+        if p_dict.get("budget"):
+            f_df = f_df[f_df["price"] <= p_dict["budget"]]
+            
+        if p_dict.get("mileage"):
+            f_df = f_df[f_df["mileage"] <= p_dict["mileage"]]
+            
+        if p_dict.get("min_year"):
+            f_df = f_df[f_df["year"] >= p_dict["min_year"]]
+            
+        if p_dict.get("max_year"):
+            f_df = f_df[f_df["year"] <= p_dict["max_year"]]
+            
+        if p_dict.get("body_style"):
+            f_df = f_df[f_df["body_style"].str.lower() == p_dict["body_style"].lower()]
+            
+        if p_dict.get("make"):
+            f_df = f_df[f_df["make"].str.lower() == p_dict["make"].lower()]
+            
+        if p_dict.get("model"):
+            f_df = f_df[f_df["model"].str.lower() == p_dict["model"].lower()]
+            
+        if p_dict.get("accident_history"):
+            f_df = f_df[f_df["accident_history"] == p_dict["accident_history"]]
+            
+        if p_dict.get("features"):
+            def has_features(car_features):
+                return all(f in car_features for f in p_dict["features"])
+            mask = f_df["features"].apply(has_features)
+            f_df = f_df[mask]
+            
+        return f_df
+
+    # 1. Primary strict filter
+    filtered_df = apply_filters(df, params)
     
-    if params.get("budget"):
-        filtered_df = filtered_df[filtered_df["price"] <= params["budget"]]
+    # 2. If no exact matches, try relaxing year constraints first, then mileage constraints
+    if filtered_df.empty:
+        relaxed_params = params.copy()
+        # Drop year filter to find closest model years
+        relaxed_params["min_year"] = None
+        relaxed_params["max_year"] = None
+        filtered_df = apply_filters(df, relaxed_params)
         
-    if params.get("mileage"):
-        filtered_df = filtered_df[filtered_df["mileage"] <= params["mileage"]]
-        
-    if params.get("body_style"):
-        # Match ignoring case just to be safe
-        filtered_df = filtered_df[filtered_df["body_style"].str.lower() == params["body_style"].lower()]
-        
-    if params.get("make"):
-        filtered_df = filtered_df[filtered_df["make"].str.lower() == params["make"].lower()]
-        
-    if params.get("model"):
-        filtered_df = filtered_df[filtered_df["model"].str.lower() == params["model"].lower()]
-        
-    if params.get("accident_history"):
-        filtered_df = filtered_df[filtered_df["accident_history"] == params["accident_history"]]
-        
-    if params.get("features"):
-        # Ensure all required features are present
-        def has_features(car_features):
-            return all(f in car_features for f in params["features"])
-        
-        mask = filtered_df["features"].apply(has_features)
-        filtered_df = filtered_df[mask]
+    if filtered_df.empty:
+        # If still empty, drop mileage constraint as well
+        relaxed_params["mileage"] = None
+        filtered_df = apply_filters(df, relaxed_params)
         
     return filtered_df
