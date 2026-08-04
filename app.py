@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import plotly.express as px
 from src.database import get_inventory
-from src.ai_search import parse_search_query, filter_inventory, generate_followup_questions
+from src.ai_search import parse_search_query, filter_inventory, generate_followup_questions, generate_search_platform_links
 from src.deal_evaluator import evaluate_deal
 from src.cost_estimator import estimate_tco, calculate_out_the_door
 from src.dealer_advisor import generate_dealer_questions, summarize_history
@@ -179,7 +179,7 @@ with tab_search:
             </a></h3>
             <p style="font-size: 1.5em; font-weight: bold; margin: 0;">${car['price']:,} <span style="font-size: 0.6em; color: #94a3b8; font-weight: normal;">(Sticker)</span></p>
             <p style="color: #38bdf8; font-weight: 600;">Est. Out-The-Door: ${otd_info['final_otd_price']:,.2f} • ${otd_info['monthly_payment']:,.2f}/mo (60 mo)</p>
-            <p>{car['mileage']:,} miles • {car['color']} • Found on <strong><a href="{url}" target="_blank" style="color: #93c5fd;">{car['source']}</a></strong></p>
+            <p>{car['mileage']:,} miles • {car['color']} • Found on <strong><a href="{url}" target="_blank" style="color: #93c5fd;">{car['source']}</a></strong> • 🏢 {car.get('dealer','')}</p>
             <div>
                 <span class="badge {badge_class}">{deal_info['rating']}</span>
             </div>
@@ -312,15 +312,27 @@ with tab_search:
                 
                 filtered_df = filter_inventory(df, new_params)
                 
+                # Generate live cross-platform search links
+                platform_links = generate_search_platform_links(new_params)
+                
+                # Region context header
+                region_label = new_params.get('region_label') or ''
+                region_md = f"\n🗺️ **Searching near:** {region_label}\n" if region_label else ''
+
+                # Live platform links section
+                links_md = "\n\n🔎 **Also Search Live Inventory Across Platforms:**\n"
+                for link_name, link_url in platform_links:
+                    links_md += f"- [{link_name} ↗]({link_url})\n"
+
                 if filtered_df.empty:
-                    response_text = f"{params_md}\n⚠️ No vehicles match your strict criteria. Try loosening your budget or mileage.{followup_md}"
+                    response_text = f"{params_md}{region_md}\n⚠️ No vehicles match your strict criteria in our local inventory — but try the live platform searches below to find real current listings!{followup_md}{links_md}"
                     st.session_state.messages.append({
                         "role": "assistant", 
                         "content": response_text,
                         "followup_chips": followup_chips
                     })
                 else:
-                    response_text = f"{params_md}\n✅ I found {len(filtered_df)} vehicles matching your criteria:{followup_md}"
+                    response_text = f"{params_md}{region_md}\n✅ I found **{len(filtered_df)} vehicles** in our inventory matching your criteria. Dealer links open the actual vehicle post on CarGurus.{followup_md}{links_md}"
                     results_list = [row.to_dict() for _, row in filtered_df.iterrows()]
                     
                     st.session_state.messages.append({
