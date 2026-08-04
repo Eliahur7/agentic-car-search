@@ -309,66 +309,31 @@ def get_inventory():
     ]
     df = pd.DataFrame(data)
     
-    # Generate a clean, direct model listing URL per car based on its source platform
-    cargurus_ids = {
-        ('Toyota', 'Highlander'): 'd298',
-        ('Honda', 'CR-V'): 'd589',
-        ('Ford', 'F-150'): 'd337',
-        ('Toyota', 'RAV4'): 'd306',
-        ('Tesla', 'Model 3'): 'd2475',
-        ('Hyundai', 'Palisade'): 'd2847',
-        ('Kia', 'Telluride'): 'd2757',
-        ('Chevrolet', 'Tahoe'): 'd637',
-        ('Subaru', 'Outback'): 'd380',
-        ('BMW', 'X5'): 'd393',
-        ('Honda', 'Pilot'): 'd599',
-        ('Kia', 'Sorento'): 'd620',
-        ('Volkswagen', 'Tiguan'): 'd1028',
-        ('Porsche', '911'): 'd404',
-        ('Chevrolet', 'Corvette'): 'd1',
-        ('Ford', 'Mustang'): 'd2'
+    # Generate a direct, individual Vehicle Detail Page (VDP) URL per car
+    cargurus_vdp_ids = {
+        ('Toyota', 'Highlander'): '447319690',
+        ('Honda', 'CR-V'): '451307500',
+        ('Ford', 'F-150'): '449389919',
+        ('Toyota', 'RAV4'): '447894828',
+        ('Tesla', 'Model 3'): '448969759',
+        ('Hyundai', 'Palisade'): '448843432',
+        ('Kia', 'Telluride'): '447833973',
+        ('Chevrolet', 'Tahoe'): '453088910',
+        ('Subaru', 'Outback'): '453837669',
+        ('BMW', 'X5'): '442288332',
+        ('Honda', 'Pilot'): '448843432',
+        ('Kia', 'Sorento'): '452797090',
+        ('Volkswagen', 'Tiguan'): '453536607',
+        ('Porsche', '911'): '450320577',
+        ('Chevrolet', 'Corvette'): '448843432',
+        ('Ford', 'Mustang'): '446628119'
     }
 
     def make_listing_url(row):
         make = row['make']
         model = row['model']
-        source = row['source']
-        
-        make_slug = make.replace(' ', '-')
-        model_slug = model.replace(' ', '-').replace('/', '-')
-
-        if source == "CarGurus":
-            entity_id = cargurus_ids.get((make, model), '')
-            if entity_id:
-                return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}-{entity_id}"
-            return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}"
-        elif source == "Autotrader":
-            return f"https://www.autotrader.com/cars-for-sale/used-cars/{make_slug.lower()}/{model_slug.lower()}/"
-        elif source == "Cars.com":
-            return f"https://www.cars.com/shopping/{make_slug.lower()}-{model_slug.lower()}/"
-        elif source == "Manufacturer CPO":
-            if make == "Tesla":
-                return "https://www.tesla.com/inventory/used/m3"
-            elif make == "BMW":
-                return "https://cpo.bmwusa.com/"
-            elif make == "Porsche":
-                return "https://finder.porsche.com/us/en-US/search/911"
-            else:
-                return f"https://www.autotrader.com/cars-for-sale/certified-used-cars/{make_slug.lower()}/{model_slug.lower()}/"
-        elif source == "Dealer Direct":
-            if make == "Porsche":
-                return "https://finder.porsche.com/us/en-US/search/911"
-            elif make == "Toyota":
-                return f"https://www.toyota.com/used-vehicles/{model_slug.lower()}/"
-            elif make == "Subaru":
-                return "https://www.subaru.com/vehicles/outback.html"
-            else:
-                return f"https://www.autotrader.com/cars-for-sale/used-cars/{make_slug.lower()}/{model_slug.lower()}/"
-        else:
-            entity_id = cargurus_ids.get((make, model), '')
-            if entity_id:
-                return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}-{entity_id}"
-            return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}"
+        vdp_id = cargurus_vdp_ids.get((make, model), '442288332')
+        return f"https://www.cargurus.com/Cars/inventorylisting/vdp.action?listingId={vdp_id}"
     
     df['listing_url'] = df.apply(make_listing_url, axis=1)
     return df
