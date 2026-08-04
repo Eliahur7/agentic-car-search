@@ -265,6 +265,25 @@ def get_inventory():
     df = pd.DataFrame(data)
     
     # Generate a clean, direct model listing URL per car based on its source platform
+    cargurus_ids = {
+        ('Toyota', 'Highlander'): 'd298',
+        ('Honda', 'CR-V'): 'd589',
+        ('Ford', 'F-150'): 'd337',
+        ('Toyota', 'RAV4'): 'd306',
+        ('Tesla', 'Model 3'): 'd2475',
+        ('Hyundai', 'Palisade'): 'd2847',
+        ('Kia', 'Telluride'): 'd2757',
+        ('Chevrolet', 'Tahoe'): 'd637',
+        ('Subaru', 'Outback'): 'd380',
+        ('BMW', 'X5'): 'd393',
+        ('Honda', 'Pilot'): 'd599',
+        ('Kia', 'Sorento'): 'd620',
+        ('Volkswagen', 'Tiguan'): 'd1028',
+        ('Porsche', '911'): 'd404',
+        ('Chevrolet', 'Corvette'): 'd1',
+        ('Ford', 'Mustang'): 'd2'
+    }
+
     def make_listing_url(row):
         make = row['make']
         model = row['model']
@@ -274,6 +293,9 @@ def get_inventory():
         model_slug = model.replace(' ', '-').replace('/', '-')
 
         if source == "CarGurus":
+            entity_id = cargurus_ids.get((make, model), '')
+            if entity_id:
+                return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}-{entity_id}"
             return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}"
         elif source == "Autotrader":
             return f"https://www.autotrader.com/cars-for-sale/used-cars/{make_slug.lower()}/{model_slug.lower()}/"
@@ -298,6 +320,9 @@ def get_inventory():
             else:
                 return f"https://www.autotrader.com/cars-for-sale/used-cars/{make_slug.lower()}/{model_slug.lower()}/"
         else:
+            entity_id = cargurus_ids.get((make, model), '')
+            if entity_id:
+                return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}-{entity_id}"
             return f"https://www.cargurus.com/Cars/l-Used-{make_slug}-{model_slug}"
     
     df['listing_url'] = df.apply(make_listing_url, axis=1)
