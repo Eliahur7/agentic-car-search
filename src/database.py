@@ -215,6 +215,93 @@ def get_inventory():
             "features": ["touchscreen", "leather", "apple carplay", "third row", "sunroof", "awd"],
             "color": "White",
             "image_url": "https://images.unsplash.com/photo-1619682817481-e994891cd1f5?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+            "id": "V015",
+            "make": "Porsche",
+            "model": "911",
+            "year": 2021,
+            "price": 95000,
+            "mileage": 12000,
+            "trim": "Carrera",
+            "body_style": "Sports Car",
+            "source": "Dealer Direct",
+            "accident_history": "Clean",
+            "features": ["leather", "apple carplay", "heated seats"],
+            "color": "Red",
+            "image_url": "https://images.unsplash.com/photo-1503376712351-1f2a33503b87?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+            "id": "V016",
+            "make": "Chevrolet",
+            "model": "Corvette",
+            "year": 2023,
+            "price": 75000,
+            "mileage": 5000,
+            "trim": "Stingray 2LT",
+            "body_style": "Sports Car",
+            "source": "CarGurus",
+            "accident_history": "Clean",
+            "features": ["leather", "touchscreen", "apple carplay", "heated seats", "ventilated seats"],
+            "color": "Yellow",
+            "image_url": "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+            "id": "V017",
+            "make": "Ford",
+            "model": "Mustang",
+            "year": 2020,
+            "price": 35000,
+            "mileage": 22000,
+            "trim": "GT Premium",
+            "body_style": "Sports Car",
+            "source": "Cars.com",
+            "accident_history": "1 Minor",
+            "features": ["leather", "apple carplay", "touchscreen"],
+            "color": "Black",
+            "image_url": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=400&q=80"
         }
     ]
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    
+    # Generate a precise, deep-search listing URL per car based on its source
+    def make_listing_url(row):
+        make = row['make'].lower()
+        model = row['model'].lower().replace(' ', '-').replace('/', '-')
+        year = row['year']
+        price = row['price']
+        mileage = row['mileage']
+        source = row['source']
+
+        if source == "CarGurus":
+            return (
+                f"https://www.cargurus.com/Cars/inventorylisting/viewDetailsFilterViewInventoryListing.action"
+                f"?zip=&showNegotiable=false&sortDir=ASC&distance=200&sortType=PRICE"
+                f"&startYear={year}&endYear={year}&maxPrice={price}"
+                f"&entitySelectingHelper.selectedEntity={row['make']}"
+            )
+        elif source == "Autotrader":
+            return (
+                f"https://www.autotrader.com/cars-for-sale/used-cars/{make}/{model}/"
+                f"?startYear={year}&endYear={year}&maxMileage={mileage}&maxPrice={price}&numRecords=25"
+            )
+        elif source == "Cars.com":
+            return (
+                f"https://www.cars.com/shopping/{make}-{model}/"
+                f"?maximum_mileage={mileage}&price_max={price}&year_max={year}&year_min={year}"
+            )
+        elif source == "Dealer Direct":
+            return (
+                f"https://www.google.com/search?q={year}+{row['make']}+{row['model']}+{row['trim']}+"
+                f"used+dealer+for+sale&tbs=qdr:m"
+            )
+        elif source == "Manufacturer CPO":
+            return (
+                f"https://www.autotrader.com/cars-for-sale/certified-used-cars/{make}/{model}/"
+                f"?startYear={year}&endYear={year}&maxMileage={mileage}"
+            )
+        else:
+            return f"https://www.google.com/search?q={year}+{row['make']}+{row['model']}+for+sale"
+    
+    df['listing_url'] = df.apply(make_listing_url, axis=1)
+    return df

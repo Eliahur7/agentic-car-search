@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import json
 from dotenv import load_dotenv
 load_dotenv()
 import plotly.express as px
@@ -48,89 +49,163 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 Agentic Car Search Engine")
-st.markdown("Type exactly what you're looking for in plain English. Our AI agent will scan multiple sources, evaluate deals, and guide you through the process.")
+# Initialize Session State
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "search_params" not in st.session_state:
+    st.session_state.search_params = None
+if "favorites" not in st.session_state:
+    st.session_state.favorites = []
 
 # Load Inventory
 df = get_inventory()
 
-# Search Input
-query = st.text_input("💬 Tell the Agent what you want:", 
-                      placeholder="e.g., Looking for a reliable SUV under $35k with under 40k miles, adaptive cruise, and clean accident history")
+# Sidebar
+with st.sidebar:
+    st.header("🔄 Controls")
+    if st.button("New Search / Clear Chat", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.search_params = None
+        st.rerun()
+        
+    st.markdown("---")
+    st.header("❤️ Favorites")
+    if not st.session_state.favorites:
+        st.write("No favorite vehicles saved yet.")
+    else:
+        fav_df = df[df['id'].isin(st.session_state.favorites)]
+        for idx, car in fav_df.iterrows():
+            st.markdown(f"**{car['year']} {car['make']} {car['model']}**")
+            st.write(f"${car['price']:,} • {car['mileage']:,} miles")
+            if st.button(f"❌ Remove", key=f"remove_sidebar_{car['id']}"):
+                st.session_state.favorites.remove(car['id'])
+                st.rerun()
+            st.markdown("---")
 
-if query:
-    with st.spinner("Agent is scanning sources, evaluating deals, and estimating costs..."):
-        # Parse query & filter
-        params = parse_search_query(query)
-        st.write("### 🧠 Agent Understood:")
-        st.json(params)
-        
-        filtered_df = filter_inventory(df, params)
-        
-        if filtered_df.empty:
-            st.warning("No vehicles match your strict criteria. Try loosening your budget or mileage.")
-        else:
-            st.success(f"Found {len(filtered_df)} matches across multiple sources!")
+st.title("🤖 Agentic Car Search Engine")
+st.markdown("Type exactly what you're looking for. Our AI agent will scan sources, evaluate deals, and remember your context for follow-ups!")
+
+
+def render_car_card(car, msg_idx):
+    deal_info = evaluate_deal(car)
+    tco_info = estimate_tco(car)
+    questions = generate_dealer_questions(car)
+    history = summarize_history(car)
+    
+    badge_class = "badge-green" if deal_info['color'] == 'green' else "badge-blue" if deal_info['color'] == 'blue' else "badge-red"
+    url = car.get('listing_url', f"https://www.google.com/search?q={car['year']}+{car['make']}+{car['model']}+for+sale")
+    
+    st.markdown(f"""
+    <div class="glass-card">
+        <h3><a href="{url}" target="_blank" style="color: #93c5fd; text-decoration: none;">
+            {car['year']} {car['make']} {car['model']} {car['trim']} ↗
+        </a></h3>
+        <p style="font-size: 1.5em; font-weight: bold; margin: 0;">${car['price']:,}</p>
+        <p>{car['mileage']:,} miles • {car['color']} • Found on <strong><a href="{url}" target="_blank" style="color: #93c5fd;">{car['source']}</a></strong></p>
+        <div>
+            <span class="badge {badge_class}">{deal_info['rating']}</span>
+        </div>
+        <p style="margin-top:10px;"><em>{deal_info['explanation']}</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Action Buttons
+    col_btn1, col_btn2 = st.columns([1, 4])
+    with col_btn1:
+        is_fav = car['id'] in st.session_state.favorites
+        button_label = "❌ Remove" if is_fav else "❤️ Save"
+        if st.button(button_label, key=f"fav_{car['id']}_msg_{msg_idx}"):
+            if is_fav:
+                st.session_state.favorites.remove(car['id'])
+            else:
+                st.session_state.favorites.append(car['id'])
+            st.rerun()
             
-            # Display Results
-            for idx, car in filtered_df.iterrows():
-                # Evaluate Deal
-                deal_info = evaluate_deal(car)
-                # Estimate TCO
-                tco_info = estimate_tco(car)
-                # Get Dealer Questions
-                questions = generate_dealer_questions(car)
-                # Summarize History
-                history = summarize_history(car)
+    with col_btn2:
+        st.link_button(f"🔗 View on {car['source']}", url)
+    
+    with st.expander("📊 View Deal Breakdown & 5-Year Cost"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("#### Features Included")
+            for feat in car['features']:
+                st.write(f"- ✅ {feat.title()}")
                 
-                badge_class = "badge-green" if deal_info['color'] == 'green' else "badge-blue" if deal_info['color'] == 'blue' else "badge-red"
+            st.write("#### History Summary")
+            hist_icon = "🟢" if history['status'] == "Positive" else "⚠️"
+            st.write(f"{hist_icon} {history['summary']}")
+        
+        with col2:
+            st.write("#### 5-Year Ownership Cost Estimate")
+            tco_df = pd.DataFrame({
+                "Category": ["Depreciation", "Maintenance & Repairs", "Fuel/Energy", "Insurance"],
+                "Cost": [tco_info["Depreciation"], tco_info["Maintenance & Repairs"], tco_info["Fuel/Energy"], tco_info["Insurance"]]
+            })
+            fig = px.pie(tco_df, values='Cost', names='Category', hole=0.5, 
+                         color_discrete_sequence=px.colors.sequential.Teal)
+            fig.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#e2e8f0',
+                margin=dict(t=0, b=0, l=0, r=0),
+                height=250
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.write(f"**Estimated 5-Year Total:** ${tco_info['Total 5-Year Cost']:,.0f}")
+    
+    with st.expander("📋 Dealer Negotiation Agent"):
+        st.write("Here are high-leverage questions to ask before visiting:")
+        for q in questions:
+            st.write(f"❓ {q}")
+    
+    st.markdown("---")
+
+
+# Display chat history
+for idx, message in enumerate(st.session_state.messages):
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        # If this message has results (car list), render the cards below the text
+        if message.get("results"):
+            for car in message["results"]:
+                render_car_card(car, idx)
+
+# Chat Input Processing
+if prompt := st.chat_input("Tell the Agent what you want (e.g., 'Looking for a reliable SUV under $35k...')"):
+    # Immediately display user input in UI before processing
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.rerun()
+
+# If the last message was from the user, the assistant needs to respond
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+    prompt = st.session_state.messages[-1]["content"]
+    with st.chat_message("assistant"):
+        with st.spinner("Agent is scanning sources, evaluating deals, and estimating costs..."):
+            
+            # Parse query contextually
+            new_params = parse_search_query(prompt, previous_params=st.session_state.search_params)
+            st.session_state.search_params = new_params
+            
+            # Format the parameters block
+            params_md = f"**🧠 Agent Understood:**\n```json\n{json.dumps(new_params, indent=2)}\n```\n"
+            
+            filtered_df = filter_inventory(df, new_params)
+            
+            if filtered_df.empty:
+                response_text = f"{params_md}\n⚠️ No vehicles match your strict criteria. Try loosening your budget or mileage."
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": response_text
+                })
+            else:
+                response_text = f"{params_md}\n✅ I found {len(filtered_df)} vehicles matching your criteria:"
+                results_list = [row.to_dict() for _, row in filtered_df.iterrows()]
                 
-                # Card HTML setup
-                st.markdown(f"""
-                <div class="glass-card">
-                    <h3>{car['year']} {car['make']} {car['model']} {car['trim']}</h3>
-                    <p style="font-size: 1.5em; font-weight: bold; margin: 0;">${car['price']:,}</p>
-                    <p>{car['mileage']:,} miles • {car['color']} • Found on <strong>{car['source']}</strong></p>
-                    <div>
-                        <span class="badge {badge_class}">{deal_info['rating']}</span>
-                    </div>
-                    <p style="margin-top:10px;"><em>{deal_info['explanation']}</em></p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                with st.expander("📊 View Deal Breakdown & 5-Year Cost"):
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write("#### Features Included")
-                        for feat in car['features']:
-                            st.write(f"- ✅ {feat.title()}")
-                            
-                        st.write("#### History Summary")
-                        hist_icon = "🟢" if history['status'] == "Positive" else "⚠️"
-                        st.write(f"{hist_icon} {history['summary']}")
-                    
-                    with col2:
-                        st.write("#### 5-Year Ownership Cost Estimate")
-                        tco_df = pd.DataFrame({
-                            "Category": ["Depreciation", "Maintenance & Repairs", "Fuel/Energy", "Insurance"],
-                            "Cost": [tco_info["Depreciation"], tco_info["Maintenance & Repairs"], tco_info["Fuel/Energy"], tco_info["Insurance"]]
-                        })
-                        fig = px.pie(tco_df, values='Cost', names='Category', hole=0.5, 
-                                     color_discrete_sequence=px.colors.sequential.Teal)
-                        fig.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font_color='#e2e8f0',
-                            margin=dict(t=0, b=0, l=0, r=0),
-                            height=250
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                        st.write(f"**Estimated 5-Year Total:** ${tco_info['Total 5-Year Cost']:,.0f}")
-                
-                with st.expander("📋 Dealer Negotiation Agent"):
-                    st.write("Here are high-leverage questions to ask before visiting:")
-                    for q in questions:
-                        st.write(f"❓ {q}")
-                
-                st.markdown("---")
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": response_text,
+                    "results": results_list
+                })
+    # Rerun to render the new assistant message natively from state
+    st.rerun()

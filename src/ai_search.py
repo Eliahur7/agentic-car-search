@@ -2,7 +2,7 @@ import re
 import os
 import json
 
-def parse_search_query(query: str):
+def parse_search_query(query: str, previous_params: dict = None):
     """
     Parses a natural language query to extract search parameters.
     Attempts to use an Anthropic LLM Agent if an API key is present,
@@ -10,14 +10,21 @@ def parse_search_query(query: str):
     """
     query_lower = query.lower()
     
-    # Defaults
-    params = {
-        "budget": None,
-        "mileage": None,
-        "features": [],
-        "body_style": None,
-        "accident_history": None
-    }
+    # Defaults or carry-over from previous
+    if previous_params:
+        params = previous_params.copy()
+        if "features" not in params:
+            params["features"] = []
+    else:
+        params = {
+            "make": None,
+            "model": None,
+            "budget": None,
+            "mileage": None,
+            "features": [],
+            "body_style": None,
+            "accident_history": None
+        }
     
     # 0. Agentic Parsing (LLM)
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -27,14 +34,19 @@ def parse_search_query(query: str):
             client = anthropic.Anthropic(api_key=api_key)
             prompt = f"""
             You are a car search extraction agent. Extract the details from the query and output ONLY valid JSON.
-            Query: "{query}"
+            User Query: "{query}"
+            
+            Previous Search Parameters Context (Update these based on the user query):
+            {json.dumps(params)}
             
             JSON schema:
             {{
+                "make": string or null (e.g. "Toyota", "Honda", "Porsche"),
+                "model": string or null,
                 "budget": integer or null (e.g., if "under 30k" -> 30000),
                 "mileage": integer or null (e.g., if "under 40k miles" -> 40000),
                 "features": list of strings (map synonyms to: "adaptive cruise", "touchscreen", "ventilated seats", "heated seats", "towing package", "leather", "apple carplay", "third row", "sunroof", "awd"),
-                "body_style": string or null (e.g. "SUV", "Sedan", "Truck", "Wagon"),
+                "body_style": string or null (e.g. "SUV", "Sedan", "Truck", "Wagon", "Coupe", "Sports Car", "Convertible"),
                 "accident_history": string or null (e.g. "Clean")
             }}
             Output only the raw JSON.
@@ -61,7 +73,8 @@ def parse_search_query(query: str):
     # 1. Budget Extraction (e.g. "under 30k", "under $30,000", "< 30000")
     budget_match = re.search(r'\$(\d{1,3}(?:,\d{3})*|\d+)(k)?', query_lower)
     if not budget_match:
-        budget_match = re.search(r'(?:budget|under|<|less than)\s*(\d{1,3}(?:,\d{3})*|\d+)(k)?(?!\s*miles)', query_lower)
+        # Prevent backtracking into the middle of a number by ensuring it's not followed by a digit or comma
+        budget_match = re.search(r'(?:budget|under|<|less than)\s*(\d{1,3}(?:,\d{3})*|\d+)(k)?(?!\s*miles|[\d,])', query_lower)
         
     if budget_match:
         val = budget_match.group(1).replace(',', '')
@@ -95,7 +108,7 @@ def parse_search_query(query: str):
         "ventilated seats": [r'ventilated', r'cooled seat'],
         "heated seats": [r'heated seat'],
         "towing package": [r'towing', r'tow hitch'],
-        "leather": [r'leather'],
+        "leather": [r'leather', r'luxury'],
         "apple carplay": [r'apple carplay', r'apple car play', r'carplay'],
         "third row": [r'third row', r'3rd row', r'3 rows'],
         "sunroof": [r'sunroof', r'moonroof', r'moon roof', r'panoramic'],
@@ -106,15 +119,35 @@ def parse_search_query(query: str):
             params["features"].append(feature)
 
     # 4. Body Style
-    body_styles = ["suv", "sedan", "truck", "wagon", "coupe"]
-    for style in body_styles:
-        if re.search(r'\b' + style + r'\b', query_lower):
-            params["body_style"] = style.upper()
+    body_styles = {
+        "SUV": ["suv"],
+        "Sedan": ["sedan"],
+        "Truck": ["truck"],
+        "Wagon": ["wagon"],
+        "Coupe": ["coupe"],
+        "Sports Car": ["sports car", "sporty"],
+        "Convertible": ["convertible"],
+        "Minivan": ["minivan"],
+        "Hatchback": ["hatchback"]
+    }
+    for style, patterns in body_styles.items():
+        if any(re.search(r'\b' + p + r'\b', query_lower) for p in patterns):
+            params["body_style"] = style
+            break
+            
+    # Make extraction (basic)
+    makes = ["toyota", "honda", "ford", "tesla", "hyundai", "kia", "chevrolet", "subaru", "bmw", "volkswagen", "porsche", "audi", "mercedes"]
+    for make in makes:
+        if re.search(r'\b' + make + r'\b', query_lower):
+            params["make"] = make.capitalize()
             break
 
     # 5. Accident History
     if "clean" in query_lower and ("accident" in query_lower or "history" in query_lower):
         params["accident_history"] = "Clean"
+        
+    # Deduplicate features
+    params["features"] = list(set(params["features"]))
         
     return params
 
@@ -124,19 +157,26 @@ def filter_inventory(df, params):
     """
     filtered_df = df.copy()
     
-    if params["budget"]:
+    if params.get("budget"):
         filtered_df = filtered_df[filtered_df["price"] <= params["budget"]]
         
-    if params["mileage"]:
+    if params.get("mileage"):
         filtered_df = filtered_df[filtered_df["mileage"] <= params["mileage"]]
         
-    if params["body_style"]:
-        filtered_df = filtered_df[filtered_df["body_style"] == params["body_style"]]
+    if params.get("body_style"):
+        # Match ignoring case just to be safe
+        filtered_df = filtered_df[filtered_df["body_style"].str.lower() == params["body_style"].lower()]
         
-    if params["accident_history"]:
+    if params.get("make"):
+        filtered_df = filtered_df[filtered_df["make"].str.lower() == params["make"].lower()]
+        
+    if params.get("model"):
+        filtered_df = filtered_df[filtered_df["model"].str.lower() == params["model"].lower()]
+        
+    if params.get("accident_history"):
         filtered_df = filtered_df[filtered_df["accident_history"] == params["accident_history"]]
         
-    if params["features"]:
+    if params.get("features"):
         # Ensure all required features are present
         def has_features(car_features):
             return all(f in car_features for f in params["features"])
