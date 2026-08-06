@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 import plotly.express as px
 from src.database import get_inventory
-from src.ai_search import parse_search_query, filter_inventory, generate_followup_questions, generate_search_platform_links
+from src.ai_search import parse_search_query, filter_inventory, generate_followup_questions
+from src.live_scraper import live_search
 from src.deal_evaluator import evaluate_deal
 from src.cost_estimator import estimate_tco, calculate_out_the_door
 from src.dealer_advisor import generate_dealer_questions, summarize_history
@@ -282,64 +283,70 @@ with tab_search:
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         prompt = st.session_state.messages[-1]["content"]
         with st.chat_message("assistant"):
-            with st.spinner("Agent is scanning sources, evaluating deals, and preparing follow-ups..."):
-                
+            with st.spinner("🔍 Scanning CarGurus, Autotrader, and Cars.com for live inventory..."):
+
                 # Parse query contextually
                 new_params = parse_search_query(prompt, previous_params=st.session_state.search_params)
                 st.session_state.search_params = new_params
-                
+
                 # Format the parameters block
-                params_md = f"**🧠 Agent Understood:**\n```json\n{json.dumps(new_params, indent=2)}\n```\n"
-                
+                params_md = f"**\U0001f9e0 Agent Understood:**\n```json\n{json.dumps(new_params, indent=2)}\n```\n"
+
                 # Generate proactive follow-up questions
                 followups = generate_followup_questions(new_params)
                 followup_md = ""
                 followup_chips = {}
-                
+
                 if followups:
-                    followup_md = "\n\n🙋 **Agent Follow-Up Questions to Refine Your Results:**\n"
+                    followup_md = "\n\n\U0001f64b **To improve results, please tell me:**\n"
                     for q in followups:
                         followup_md += f"- {q}\n"
-                        
-                    # Generate quick-reply chip options
                     if not new_params.get("condition"):
-                        followup_chips["🚗 Used Car"] = "I am looking for a Used car"
-                        followup_chips["🆕 New Car"] = "I am looking for a brand New car"
+                        followup_chips["\U0001f697 Used Car"] = "I am looking for a Used car"
+                        followup_chips["\U0001f195 New Car"] = "I am looking for a brand New car"
                     if not new_params.get("zip_code"):
-                        followup_chips["📍 Set Zip 53024"] = "My zip code is 53024"
+                        followup_chips["\U0001f4cd Enter Zip"] = "My zip code is "
                     if not new_params.get("trade_in"):
-                        followup_chips["🔄 Have Trade-In"] = "I have a vehicle to trade in"
-                
-                filtered_df = filter_inventory(df, new_params)
-                
-                # Generate live cross-platform search links
-                platform_links = generate_search_platform_links(new_params)
-                
-                # Region context header
-                region_label = new_params.get('region_label') or ''
-                region_md = f"\n🗺️ **Searching near:** {region_label}\n" if region_label else ''
+                        followup_chips["\U0001f504 Have Trade-In"] = "I have a vehicle to trade in"
 
-                # Live platform links section
-                links_md = "\n\n🔎 **Also Search Live Inventory Across Platforms:**\n"
+                # ── LIVE SEARCH ─────────────────────────────────────────────
+                region_label = new_params.get("region_label") or ""
+                zip_code     = new_params.get("zip_code") or "10001"
+                region_md    = f"\n\U0001f5fa\ufe0f **Searching near:** {region_label} (zip: {zip_code}, 50-mile radius)\n" if region_label else f"\n\U0001f5fa\ufe0f **Searching within 50 miles of zip:** {zip_code}\n"
+
+                search_result   = live_search(new_params)
+                live_listings   = search_result["listings"]
+                platform_links  = search_result["platform_links"]
+
+                # Always show the cross-platform live search links
+                links_md = "\n\n\U0001f50e **Live Search Links** — click to browse full real-time inventory:\n"
                 for link_name, link_url in platform_links:
-                    links_md += f"- [{link_name} ↗]({link_url})\n"
+                    links_md += f"- [{link_name}]({link_url})\n"
 
-                if filtered_df.empty:
-                    response_text = f"{params_md}{region_md}\n⚠️ No vehicles match your strict criteria in our local inventory — but try the live platform searches below to find real current listings!{followup_md}{links_md}"
+                if live_listings:
+                    response_text = (
+                        f"{params_md}{region_md}\n"
+                        f"\u2705 Found **{len(live_listings)} live listings** from CarGurus near **{region_label or zip_code}**. "
+                        f"Each card links directly to the vehicle detail page.{followup_md}{links_md}"
+                    )
                     st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": response_text,
-                        "followup_chips": followup_chips
+                        "role":           "assistant",
+                        "content":        response_text,
+                        "results":        live_listings,
+                        "followup_chips": followup_chips,
                     })
                 else:
-                    response_text = f"{params_md}{region_md}\n✅ I found **{len(filtered_df)} vehicles** in our inventory matching your criteria. Dealer links open the actual vehicle post on CarGurus.{followup_md}{links_md}"
-                    results_list = [row.to_dict() for _, row in filtered_df.iterrows()]
-                    
+                    response_text = (
+                        f"{params_md}{region_md}\n"
+                        f"\u26a0\ufe0f CarGurus did not return parseable listings for this search in our automated scan. "
+                        f"This can happen if CarGurus requires browser session cookies. "
+                        f"**Please click the live search links below** to view real matching inventory directly on each platform — "
+                        f"all filters (year, mileage, zip code, distance) are pre-applied.{followup_md}{links_md}"
+                    )
                     st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": response_text,
-                        "results": results_list,
-                        "followup_chips": followup_chips
+                        "role":           "assistant",
+                        "content":        response_text,
+                        "followup_chips": followup_chips,
                     })
         # Rerun to render natively
         st.rerun()
