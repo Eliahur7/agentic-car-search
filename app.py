@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import plotly.express as px
 from src.database import get_inventory
-from src.ai_search import parse_search_query, filter_inventory, generate_followup_questions
+from src.ai_search import parse_search_query, filter_inventory, generate_followup_questions, generate_search_platform_links
 from src.live_scraper import live_search
 from src.deal_evaluator import evaluate_deal
 from src.cost_estimator import estimate_tco, calculate_out_the_door
