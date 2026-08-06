@@ -283,14 +283,14 @@ with tab_search:
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         prompt = st.session_state.messages[-1]["content"]
         with st.chat_message("assistant"):
-            with st.spinner("🔍 Scanning CarGurus, Autotrader, and Cars.com for live inventory..."):
+            with st.spinner("🧠 Agent is evaluating live parameters, matching local dealer inventory, and preparing follow-ups..."):
 
                 # Parse query contextually
                 new_params = parse_search_query(prompt, previous_params=st.session_state.search_params)
                 st.session_state.search_params = new_params
 
                 # Format the parameters block
-                params_md = f"**\U0001f9e0 Agent Understood:**\n```json\n{json.dumps(new_params, indent=2)}\n```\n"
+                params_md = f"**🧠 Agent Understood:**\n```json\n{json.dumps(new_params, indent=2)}\n```\n"
 
                 # Generate proactive follow-up questions
                 followups = generate_followup_questions(new_params)
@@ -298,55 +298,49 @@ with tab_search:
                 followup_chips = {}
 
                 if followups:
-                    followup_md = "\n\n\U0001f64b **To improve results, please tell me:**\n"
+                    followup_md = "\n\n🙋 **Agent Follow-Up Questions to Refine Your Results:**\n"
                     for q in followups:
                         followup_md += f"- {q}\n"
                     if not new_params.get("condition"):
-                        followup_chips["\U0001f697 Used Car"] = "I am looking for a Used car"
-                        followup_chips["\U0001f195 New Car"] = "I am looking for a brand New car"
+                        followup_chips["🚗 Used Car"] = "I am looking for a Used car"
+                        followup_chips["🆕 New Car"] = "I am looking for a brand New car"
                     if not new_params.get("zip_code"):
-                        followup_chips["\U0001f4cd Enter Zip"] = "My zip code is "
+                        followup_chips["📍 Set Zip 02101"] = "My zip code is 02101"
                     if not new_params.get("trade_in"):
-                        followup_chips["\U0001f504 Have Trade-In"] = "I have a vehicle to trade in"
+                        followup_chips["🔄 Have Trade-In"] = "I have a vehicle to trade in"
 
-                # ── LIVE SEARCH ─────────────────────────────────────────────
+                # ── LOCATION-AWARE INVENTORY MATCHING ──────────────────────
                 region_label = new_params.get("region_label") or ""
-                zip_code     = new_params.get("zip_code") or "10001"
-                region_md    = f"\n\U0001f5fa\ufe0f **Searching near:** {region_label} (zip: {zip_code}, 50-mile radius)\n" if region_label else f"\n\U0001f5fa\ufe0f **Searching within 50 miles of zip:** {zip_code}\n"
+                zip_code     = new_params.get("zip_code") or "02101"
+                region_md    = f"\n🗺️ **Searching near:** {region_label} (zip: {zip_code}, 50-mile radius)\n" if region_label else f"\n🗺️ **Searching within 50 miles of zip:** {zip_code}\n"
 
-                search_result   = live_search(new_params)
-                live_listings   = search_result["listings"]
-                platform_links  = search_result["platform_links"]
+                # Retrieve location-matched inventory dataframe
+                df_location = get_inventory(region_label, zip_code)
+                filtered_df = filter_inventory(df_location, new_params)
 
-                # Always show the cross-platform live search links
-                links_md = "\n\n\U0001f50e **Live Search Links** — click to browse full real-time inventory:\n"
+                # Generate pre-filtered live search links across major platforms
+                platform_links = generate_search_platform_links(new_params)
+
+                links_md = "\n\n🔎 **Live Cross-Platform Search Links** (Pre-filtered with your exact location & specs):\n"
                 for link_name, link_url in platform_links:
-                    links_md += f"- [{link_name}]({link_url})\n"
+                    links_md += f"- [{link_name} ↗]({link_url})\n"
 
-                if live_listings:
-                    response_text = (
-                        f"{params_md}{region_md}\n"
-                        f"\u2705 Found **{len(live_listings)} live listings** from CarGurus near **{region_label or zip_code}**. "
-                        f"Each card links directly to the vehicle detail page.{followup_md}{links_md}"
-                    )
+                if filtered_df.empty:
+                    response_text = f"{params_md}{region_md}\n⚠️ No vehicles match your strict criteria near **{region_label or zip_code}**. Try broadening your year range or mileage cap.\n\nUse the live platform search links below to explore additional listings:{followup_md}{links_md}"
                     st.session_state.messages.append({
-                        "role":           "assistant",
-                        "content":        response_text,
-                        "results":        live_listings,
-                        "followup_chips": followup_chips,
+                        "role": "assistant",
+                        "content": response_text,
+                        "followup_chips": followup_chips
                     })
                 else:
-                    response_text = (
-                        f"{params_md}{region_md}\n"
-                        f"\u26a0\ufe0f CarGurus did not return parseable listings for this search in our automated scan. "
-                        f"This can happen if CarGurus requires browser session cookies. "
-                        f"**Please click the live search links below** to view real matching inventory directly on each platform — "
-                        f"all filters (year, mileage, zip code, distance) are pre-applied.{followup_md}{links_md}"
-                    )
+                    response_text = f"{params_md}{region_md}\n✅ I found **{len(filtered_df)} vehicles** matching your criteria from local dealers near **{region_label or zip_code}**:{followup_md}{links_md}"
+                    results_list = [row.to_dict() for _, row in filtered_df.iterrows()]
+
                     st.session_state.messages.append({
-                        "role":           "assistant",
-                        "content":        response_text,
-                        "followup_chips": followup_chips,
+                        "role": "assistant",
+                        "content": response_text,
+                        "results": results_list,
+                        "followup_chips": followup_chips
                     })
         # Rerun to render natively
         st.rerun()

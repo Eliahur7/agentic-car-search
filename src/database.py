@@ -2,13 +2,16 @@ import pandas as pd
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CITY → ZIP & REGION KNOWLEDGE MAP
-# Used to resolve "Chicago Area", "NYC", "LA", etc. to zip codes and regions
+# Used to resolve "Chicago Area", "Boston Area", "NYC", "LA", etc.
 # ─────────────────────────────────────────────────────────────────────────────
 CITY_ZIP_MAP = {
     "chicago": ("60601", "Chicago, IL"),
     "chicago area": ("60601", "Chicago, IL"),
     "chicagoland": ("60601", "Chicago, IL"),
     "illinois": ("60601", "Chicago, IL"),
+    "boston": ("02101", "Boston, MA"),
+    "boston area": ("02101", "Boston, MA"),
+    "massachusetts": ("02101", "Boston, MA"),
     "new york": ("10001", "New York, NY"),
     "nyc": ("10001", "New York, NY"),
     "los angeles": ("90001", "Los Angeles, CA"),
@@ -20,14 +23,82 @@ CITY_ZIP_MAP = {
     "phoenix": ("85001", "Phoenix, AZ"),
     "seattle": ("98101", "Seattle, WA"),
     "denver": ("80201", "Denver, CO"),
-    "boston": ("02101", "Boston, MA"),
+    "san francisco": ("94101", "San Francisco, CA"),
+    "sf": ("94101", "San Francisco, CA"),
 }
 
-# Chicago-area dealer names used for local dealer inventory
-CHICAGO_DEALERS = [
-    "BMW of Chicago (North)", "Perillo BMW Chicago", "BMW of Orland Park",
-    "Patrick BMW Schaumburg", "Elmhurst BMW", "AutoNation BMW Chicago"
-]
+METRO_DEALERS = {
+    "Boston, MA": {
+        "zip_code": "02101",
+        "BMW": ["Herb Chambers BMW of Boston", "BMW of Peabody", "South Shore BMW", "BMW of Sudbury", "BMW of Norwood"],
+        "Porsche": ["Porsche Westwood (Boston)", "Porsche Norwell", "Porsche Burlington"],
+        "Toyota": ["Herb Chambers Toyota of Boston", "Boch Toyota South", "Woburn Toyota"],
+        "Honda": ["Herb Chambers Honda of Boston", "Bernardi Honda", "Boch Honda"],
+        "Ford": ["Herb Chambers Ford Braintree", "Stoneham Ford"],
+        "Chevrolet": ["Quirk Chevrolet Boston", "Mirak Chevrolet"],
+        "Tesla": ["Tesla Boston (Boylston St)", "Tesla Peabody"],
+        "Hyundai": ["Herb Chambers Hyundai", "Mirak Hyundai"],
+        "Kia": ["Quirk Kia Boston", "Lev Kia"],
+        "Subaru": ["City Subaru Boston", "Subaru of Wakefield"],
+        "Volkswagen": ["Boston Volkswagen", "Woburn VW"],
+    },
+    "New York, NY": {
+        "zip_code": "10001",
+        "BMW": ["BMW of Manhattan", "BMW of Brooklyn", "Rallye BMW (Long Island)", "BMW of Bayside"],
+        "Porsche": ["Manhattan Motorcars Porsche", "Porsche Brooklyn", "Porsche Gold Coast"],
+        "Toyota": ["Toyota of Manhattan", "Plaza Toyota Brooklyn", "Koeppel Toyota Queens"],
+        "Honda": ["Manhattan Honda", "Plaza Honda Brooklyn", "Paragon Honda Queens"],
+        "Ford": ["Premier Ford Brooklyn", "Manhattan Ford"],
+        "Chevrolet": ["Major Chevrolet Queens", "Koeppel Chevrolet"],
+        "Tesla": ["Tesla Manhattan (Meatpacking)", "Tesla Brooklyn"],
+        "Hyundai": ["Hyundai of Queens", "Plaza Hyundai"],
+        "Kia": ["Kia of Queens", "Plaza Kia"],
+        "Subaru": ["Subaru of Manhattan", "Koeppel Subaru"],
+        "Volkswagen": ["Volkswagen of Manhattan", "Plaza VW"],
+    },
+    "Los Angeles, CA": {
+        "zip_code": "90001",
+        "BMW": ["BMW of Beverly Hills", "Pacific BMW (Glendale)", "Century West BMW (Studio City)", "Santa Monica BMW"],
+        "Porsche": ["Porsche Downtown LA", "Porsche Beverly Hills", "Porsche South Bay"],
+        "Toyota": ["Toyota of Downtown LA", "Santa Monica Toyota", "Culver City Toyota"],
+        "Honda": ["Honda of Downtown LA", "Santa Monica Honda", "Airport Marina Honda"],
+        "Ford": ["Downtown LA Ford", "Culver City Ford"],
+        "Chevrolet": ["Felix Chevrolet Downtown LA", "Martin Chevrolet Torrance"],
+        "Tesla": ["Tesla Santa Monica", "Tesla Century City"],
+        "Hyundai": ["Downtown LA Hyundai", "Hyundai of Glendale"],
+        "Kia": ["Downtown LA Kia", "Kia of Glendale"],
+        "Subaru": ["Subaru Santa Monica", "Subaru of Glendale"],
+        "Volkswagen": ["Volkswagen Santa Monica", "Downtown LA VW"],
+    },
+    "Chicago, IL": {
+        "zip_code": "60601",
+        "BMW": ["BMW of Chicago (North)", "Perillo BMW Chicago", "BMW of Orland Park", "Patrick BMW Schaumburg", "Elmhurst BMW"],
+        "Porsche": ["Porsche Downtown Chicago", "Porsche Exchange Highland Park", "Porsche Orland Park"],
+        "Toyota": ["Chicago Toyota Center", "Elmhurst Toyota", "Bredemann Toyota"],
+        "Honda": ["McGrath Honda Chicago", "Honda of Lisle", "Bredemann Honda"],
+        "Ford": ["Ford City Chicago", "AutoNation Ford Torrence"],
+        "Chevrolet": ["Mike Anderson Chevrolet Chicago", "Chevrolet of Orland Park"],
+        "Tesla": ["Tesla Chicago (Grand Ave)", "Tesla Evanston"],
+        "Hyundai": ["Napleton Hyundai Chicago", "McGrath Hyundai"],
+        "Kia": ["Kia of Chicago", "Kia of Naperville"],
+        "Subaru": ["Subaru of Chicago", "Subaru of Naperville"],
+        "Volkswagen": ["Elgin VW", "City VW Chicago"],
+    },
+    "Miami, FL": {
+        "zip_code": "33101",
+        "BMW": ["Braman BMW Miami", "BMW of Fort Lauderdale", "South Motors BMW Miami"],
+        "Porsche": ["Porsche Miami", "Champion Porsche Pompano", "The Collection Porsche Coral Gables"],
+        "Toyota": ["Kendall Toyota Miami", "Headquarter Toyota", "Autonation Toyota Pines"],
+        "Honda": ["Braman Honda Miami", "South Motors Honda", "Ocean Honda"],
+        "Ford": ["Metro Ford Miami", "AutoNation Ford Miami"],
+        "Chevrolet": ["Bomnin Chevrolet Dadeland", "Miami Lakes Chevrolet"],
+        "Tesla": ["Tesla Miami (Aventura)", "Tesla Coral Gables"],
+        "Hyundai": ["Braman Hyundai Miami", "Kendall Hyundai"],
+        "Kia": ["Miami Lakes Kia", "South Motors Kia"],
+        "Subaru": ["Subaru of North Miami", "Subaru Pembroke Pines"],
+        "Volkswagen": ["Palmetto VW Miami", "South Motors VW"],
+    }
+}
 
 
 def resolve_city_to_zip(query_lower: str):
@@ -38,19 +109,19 @@ def resolve_city_to_zip(query_lower: str):
     return None, None
 
 
-def get_inventory():
+def get_inventory(region_label=None, zip_code=None):
     """
-    Returns a realistic multi-source inventory of vehicles.
-    Includes 50+ vehicles with Chicago-area local dealer context,
-    covering BMW X5 variants across 2021-2024 and other popular models.
+    Returns a multi-source inventory of vehicles.
+    If region_label or zip_code is supplied, dynamically adapts dealer names, locations,
+    and zip codes to match the user's requested region (e.g. Boston, NYC, LA, Chicago, Miami).
     """
-    data = [
-        # ── BMW X5 INVENTORY (Chicago Area) ─────────────────────────────────
+    base_data = [
+        # ── BMW X5 INVENTORY (2024-2026 & Recent) ───────────────────────────
         {
             "id": "V101", "make": "BMW", "model": "X5", "year": 2024,
             "price": 62500, "mileage": 8200, "trim": "xDrive40i",
             "body_style": "SUV", "source": "CarGurus",
-            "dealer": "BMW of Chicago (North)", "zip_code": "60601",
+            "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "awd", "adaptive cruise", "apple carplay",
                          "heated seats", "ventilated seats", "touchscreen"],
@@ -60,7 +131,7 @@ def get_inventory():
             "id": "V102", "make": "BMW", "model": "X5", "year": 2024,
             "price": 67800, "mileage": 5100, "trim": "xDrive50e (Plug-in Hybrid)",
             "body_style": "SUV", "source": "Autotrader",
-            "dealer": "Perillo BMW Chicago", "zip_code": "60614",
+            "dealer_idx": 1,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "awd", "adaptive cruise", "apple carplay",
                          "heated seats", "ventilated seats", "touchscreen"],
@@ -70,75 +141,75 @@ def get_inventory():
             "id": "V103", "make": "BMW", "model": "X5", "year": 2024,
             "price": 71200, "mileage": 3900, "trim": "M Sport xDrive40i",
             "body_style": "SUV", "source": "Cars.com",
-            "dealer": "Elmhurst BMW", "zip_code": "60126",
+            "dealer_idx": 2,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "awd", "adaptive cruise", "apple carplay",
                          "heated seats", "ventilated seats", "touchscreen"],
             "color": "Phytonic Blue",
         },
         {
-            "id": "V104", "make": "BMW", "model": "X5", "year": 2023,
+            "id": "V104", "make": "BMW", "model": "X5", "year": 2025,
+            "price": 74500, "mileage": 1800, "trim": "xDrive40i M Sport",
+            "body_style": "SUV", "source": "CarGurus",
+            "dealer_idx": 3,
+            "accident_history": "Clean",
+            "features": ["leather", "sunroof", "awd", "adaptive cruise", "apple carplay",
+                         "heated seats", "ventilated seats", "touchscreen"],
+            "color": "Skyscraper Grey",
+        },
+        {
+            "id": "V105", "make": "BMW", "model": "X5", "year": 2023,
             "price": 54900, "mileage": 19800, "trim": "xDrive40i",
             "body_style": "SUV", "source": "CarGurus",
-            "dealer": "AutoNation BMW Chicago", "zip_code": "60601",
+            "dealer_idx": 4,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "awd", "adaptive cruise", "apple carplay",
                          "heated seats", "touchscreen"],
             "color": "Dark Graphite",
         },
         {
-            "id": "V105", "make": "BMW", "model": "X5", "year": 2023,
+            "id": "V106", "make": "BMW", "model": "X5", "year": 2023,
             "price": 57500, "mileage": 14200, "trim": "sDrive40i",
             "body_style": "SUV", "source": "Dealer Direct",
-            "dealer": "Patrick BMW Schaumburg", "zip_code": "60173",
+            "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "apple carplay", "heated seats", "touchscreen"],
             "color": "Mineral White",
         },
         {
-            "id": "V106", "make": "BMW", "model": "X5", "year": 2023,
+            "id": "V107", "make": "BMW", "model": "X5", "year": 2023,
             "price": 61000, "mileage": 11500, "trim": "xDrive45e (Plug-in Hybrid)",
             "body_style": "SUV", "source": "Autotrader",
-            "dealer": "BMW of Orland Park", "zip_code": "60462",
+            "dealer_idx": 1,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "awd", "adaptive cruise", "apple carplay",
                          "heated seats", "ventilated seats"],
             "color": "Carbon Black",
         },
         {
-            "id": "V107", "make": "BMW", "model": "X5", "year": 2022,
+            "id": "V108", "make": "BMW", "model": "X5", "year": 2022,
             "price": 49800, "mileage": 26000, "trim": "xDrive40i",
             "body_style": "SUV", "source": "CarGurus",
-            "dealer": "BMW of Chicago (North)", "zip_code": "60601",
+            "dealer_idx": 2,
             "accident_history": "Clean",
-            "features": ["leather", "sunroof", "awd", "heated seats", "touchscreen",
-                         "apple carplay"],
+            "features": ["leather", "sunroof", "awd", "heated seats", "touchscreen", "apple carplay"],
             "color": "Sparkling Brown",
         },
         {
-            "id": "V108", "make": "BMW", "model": "X5", "year": 2022,
+            "id": "V109", "make": "BMW", "model": "X5", "year": 2022,
             "price": 52000, "mileage": 22500, "trim": "M50i",
             "body_style": "SUV", "source": "Cars.com",
-            "dealer": "Perillo BMW Chicago", "zip_code": "60614",
+            "dealer_idx": 3,
             "accident_history": "1 Minor",
             "features": ["leather", "sunroof", "awd", "adaptive cruise", "heated seats",
                          "ventilated seats", "apple carplay", "touchscreen"],
             "color": "Marina Bay Blue",
         },
         {
-            "id": "V109", "make": "BMW", "model": "X5", "year": 2022,
-            "price": 48200, "mileage": 29500, "trim": "xDrive40i",
-            "body_style": "SUV", "source": "Manufacturer CPO",
-            "dealer": "Elmhurst BMW", "zip_code": "60126",
-            "accident_history": "Clean",
-            "features": ["leather", "sunroof", "awd", "touchscreen", "heated seats"],
-            "color": "Azurite Black",
-        },
-        {
             "id": "V110", "make": "BMW", "model": "X5", "year": 2021,
             "price": 45500, "mileage": 35000, "trim": "xDrive40i",
             "body_style": "SUV", "source": "Autotrader",
-            "dealer": "AutoNation BMW Chicago", "zip_code": "60601",
+            "dealer_idx": 4,
             "accident_history": "Clean",
             "features": ["leather", "sunroof", "awd", "heated seats", "touchscreen"],
             "color": "Glacier Silver",
@@ -148,8 +219,7 @@ def get_inventory():
         {
             "id": "V001", "make": "Toyota", "model": "Highlander", "year": 2021,
             "price": 27500, "mileage": 38000, "trim": "XLE",
-            "body_style": "SUV", "source": "CarGurus",
-            "dealer": "Toyota of Chicago", "zip_code": "60601",
+            "body_style": "SUV", "source": "CarGurus", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["adaptive cruise", "touchscreen", "heated seats", "third row"],
             "color": "Silver",
@@ -157,18 +227,15 @@ def get_inventory():
         {
             "id": "V019", "make": "Toyota", "model": "Highlander", "year": 2025,
             "price": 46000, "mileage": 5000, "trim": "Hybrid Limited",
-            "body_style": "SUV", "source": "Autotrader",
-            "dealer": "Elmhurst Toyota", "zip_code": "60126",
+            "body_style": "SUV", "source": "Autotrader", "dealer_idx": 1,
             "accident_history": "Clean",
-            "features": ["adaptive cruise", "touchscreen", "leather", "apple carplay",
-                         "third row", "sunroof", "awd"],
+            "features": ["adaptive cruise", "touchscreen", "leather", "apple carplay", "third row", "sunroof", "awd"],
             "color": "Silver",
         },
         {
             "id": "V004", "make": "Toyota", "model": "RAV4", "year": 2023,
             "price": 31000, "mileage": 12000, "trim": "Limited",
-            "body_style": "SUV", "source": "Dealer Direct",
-            "dealer": "Toyota of Chicago", "zip_code": "60601",
+            "body_style": "SUV", "source": "Dealer Direct", "dealer_idx": 2,
             "accident_history": "Clean",
             "features": ["adaptive cruise", "ventilated seats", "sunroof", "awd"],
             "color": "Blue",
@@ -178,8 +245,7 @@ def get_inventory():
         {
             "id": "V002", "make": "Honda", "model": "CR-V", "year": 2022,
             "price": 26000, "mileage": 25000, "trim": "EX-L",
-            "body_style": "SUV", "source": "Autotrader",
-            "dealer": "McGrath Honda", "zip_code": "60148",
+            "body_style": "SUV", "source": "Autotrader", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["adaptive cruise", "touchscreen", "leather", "apple carplay"],
             "color": "White",
@@ -187,11 +253,9 @@ def get_inventory():
         {
             "id": "V011", "make": "Honda", "model": "Pilot", "year": 2020,
             "price": 27000, "mileage": 28000, "trim": "EX-L",
-            "body_style": "SUV", "source": "CarGurus",
-            "dealer": "Honda of Lisle", "zip_code": "60532",
+            "body_style": "SUV", "source": "CarGurus", "dealer_idx": 1,
             "accident_history": "Clean",
-            "features": ["adaptive cruise", "touchscreen", "leather", "apple carplay",
-                         "third row", "sunroof"],
+            "features": ["adaptive cruise", "touchscreen", "leather", "apple carplay", "third row", "sunroof"],
             "color": "Blue",
         },
 
@@ -199,8 +263,7 @@ def get_inventory():
         {
             "id": "V003", "make": "Ford", "model": "F-150", "year": 2020,
             "price": 35000, "mileage": 45000, "trim": "Lariat",
-            "body_style": "Truck", "source": "Cars.com",
-            "dealer": "Ford of Chicago", "zip_code": "60601",
+            "body_style": "Truck", "source": "Cars.com", "dealer_idx": 0,
             "accident_history": "1 Minor",
             "features": ["towing package", "ventilated seats", "touchscreen"],
             "color": "Black",
@@ -208,8 +271,7 @@ def get_inventory():
         {
             "id": "V017", "make": "Ford", "model": "Mustang", "year": 2020,
             "price": 35000, "mileage": 22000, "trim": "GT Premium",
-            "body_style": "Sports Car", "source": "Cars.com",
-            "dealer": "Ford City Chicago", "zip_code": "60629",
+            "body_style": "Sports Car", "source": "Cars.com", "dealer_idx": 1,
             "accident_history": "1 Minor",
             "features": ["leather", "apple carplay", "touchscreen"],
             "color": "Black",
@@ -219,8 +281,7 @@ def get_inventory():
         {
             "id": "V005", "make": "Tesla", "model": "Model 3", "year": 2021,
             "price": 33000, "mileage": 30000, "trim": "Long Range",
-            "body_style": "Sedan", "source": "Manufacturer CPO",
-            "dealer": "Tesla Chicago (Evanston)", "zip_code": "60201",
+            "body_style": "Sedan", "source": "Manufacturer CPO", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["touchscreen", "heated seats"],
             "color": "Red",
@@ -230,8 +291,7 @@ def get_inventory():
         {
             "id": "V006", "make": "Hyundai", "model": "Palisade", "year": 2022,
             "price": 38000, "mileage": 20000, "trim": "Calligraphy",
-            "body_style": "SUV", "source": "CarGurus",
-            "dealer": "Napleton Hyundai Chicago", "zip_code": "60601",
+            "body_style": "SUV", "source": "CarGurus", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["adaptive cruise", "ventilated seats", "third row"],
             "color": "Grey",
@@ -239,8 +299,7 @@ def get_inventory():
         {
             "id": "V007", "make": "Kia", "model": "Telluride", "year": 2021,
             "price": 34000, "mileage": 42000, "trim": "SX",
-            "body_style": "SUV", "source": "Autotrader",
-            "dealer": "Kia of Naperville", "zip_code": "60540",
+            "body_style": "SUV", "source": "Autotrader", "dealer_idx": 0,
             "accident_history": "1 Minor",
             "features": ["adaptive cruise", "ventilated seats", "third row", "sunroof"],
             "color": "Black",
@@ -248,11 +307,9 @@ def get_inventory():
         {
             "id": "V012", "make": "Kia", "model": "Sorento", "year": 2021,
             "price": 26500, "mileage": 24000, "trim": "EX",
-            "body_style": "SUV", "source": "Cars.com",
-            "dealer": "Kia of Naperville", "zip_code": "60540",
+            "body_style": "SUV", "source": "Cars.com", "dealer_idx": 1,
             "accident_history": "Clean",
-            "features": ["adaptive cruise", "touchscreen", "apple carplay", "third row",
-                         "sunroof", "awd"],
+            "features": ["adaptive cruise", "touchscreen", "apple carplay", "third row", "sunroof", "awd"],
             "color": "Silver",
         },
 
@@ -260,8 +317,7 @@ def get_inventory():
         {
             "id": "V008", "make": "Chevrolet", "model": "Tahoe", "year": 2019,
             "price": 42000, "mileage": 60000, "trim": "Premier",
-            "body_style": "SUV", "source": "Cars.com",
-            "dealer": "Mike Anderson Chevrolet", "zip_code": "60622",
+            "body_style": "SUV", "source": "Cars.com", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["towing package", "ventilated seats", "third row"],
             "color": "White",
@@ -269,11 +325,9 @@ def get_inventory():
         {
             "id": "V016", "make": "Chevrolet", "model": "Corvette", "year": 2023,
             "price": 75000, "mileage": 5000, "trim": "Stingray 2LT",
-            "body_style": "Sports Car", "source": "CarGurus",
-            "dealer": "Chevrolet of Chicago", "zip_code": "60601",
+            "body_style": "Sports Car", "source": "CarGurus", "dealer_idx": 1,
             "accident_history": "Clean",
-            "features": ["leather", "touchscreen", "apple carplay", "heated seats",
-                         "ventilated seats"],
+            "features": ["leather", "touchscreen", "apple carplay", "heated seats", "ventilated seats"],
             "color": "Yellow",
         },
 
@@ -281,41 +335,17 @@ def get_inventory():
         {
             "id": "V009", "make": "Subaru", "model": "Outback", "year": 2020,
             "price": 24000, "mileage": 50000, "trim": "Touring XT",
-            "body_style": "Wagon", "source": "Dealer Direct",
-            "dealer": "Subaru of Naperville", "zip_code": "60540",
+            "body_style": "Wagon", "source": "Dealer Direct", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["adaptive cruise", "ventilated seats", "awd"],
             "color": "Green",
-        },
-
-        # ── BMW X5 (NOT CHICAGO) ─────────────────────────────────────────────
-        {
-            "id": "V010", "make": "BMW", "model": "X5", "year": 2021,
-            "price": 49000, "mileage": 35000, "trim": "xDrive40i",
-            "body_style": "SUV", "source": "Manufacturer CPO",
-            "dealer": "BMW of Beverly Hills", "zip_code": "90210",
-            "accident_history": "Clean",
-            "features": ["adaptive cruise", "ventilated seats", "sunroof", "leather", "awd"],
-            "color": "Blue",
-        },
-
-        # ── VOLKSWAGEN ───────────────────────────────────────────────────────
-        {
-            "id": "V013", "make": "Volkswagen", "model": "Tiguan", "year": 2022,
-            "price": 25000, "mileage": 20000, "trim": "SE",
-            "body_style": "SUV", "source": "Autotrader",
-            "dealer": "Elgin VW", "zip_code": "60120",
-            "accident_history": "Clean",
-            "features": ["touchscreen", "apple carplay", "third row", "sunroof"],
-            "color": "Black",
         },
 
         # ── PORSCHE ──────────────────────────────────────────────────────────
         {
             "id": "V015", "make": "Porsche", "model": "911", "year": 2021,
             "price": 95000, "mileage": 12000, "trim": "Carrera",
-            "body_style": "Sports Car", "source": "Dealer Direct",
-            "dealer": "Porsche of Chicago", "zip_code": "60601",
+            "body_style": "Sports Car", "source": "Dealer Direct", "dealer_idx": 0,
             "accident_history": "Clean",
             "features": ["leather", "apple carplay", "heated seats"],
             "color": "Red",
@@ -323,17 +353,42 @@ def get_inventory():
         {
             "id": "V020", "make": "Porsche", "model": "911", "year": 2024,
             "price": 128000, "mileage": 4000, "trim": "Carrera S",
-            "body_style": "Sports Car", "source": "Dealer Direct",
-            "dealer": "Porsche of Chicago", "zip_code": "60601",
+            "body_style": "Sports Car", "source": "Dealer Direct", "dealer_idx": 1,
             "accident_history": "Clean",
             "features": ["leather", "apple carplay", "heated seats", "ventilated seats"],
             "color": "White",
         },
     ]
 
-    df = pd.DataFrame(data)
+    # Determine Metro Target Location
+    target_region = region_label if region_label in METRO_DEALERS else "Chicago, IL"
+    if region_label and region_label not in METRO_DEALERS:
+        # Fallback to requested region_label if not in dict
+        metro_info = {
+            "zip_code": zip_code or "10001",
+            "default_region": region_label
+        }
+    else:
+        metro_info = METRO_DEALERS.get(target_region, METRO_DEALERS["Chicago, IL"])
 
-    # Build direct CarGurus Vehicle Detail Page (VDP) URLs for each car
+    target_zip = zip_code or metro_info.get("zip_code", "60601")
+
+    # Apply location-aware dynamic dealer names & zip code
+    for car in base_data:
+        make = car["make"]
+        d_idx = car.get("dealer_idx", 0)
+        
+        if target_region in METRO_DEALERS and make in METRO_DEALERS[target_region]:
+            dealer_list = METRO_DEALERS[target_region][make]
+            car["dealer"] = dealer_list[d_idx % len(dealer_list)]
+        else:
+            car["dealer"] = f"{make} Center ({target_region or 'Local Dealer'})"
+            
+        car["zip_code"] = target_zip
+
+    df = pd.DataFrame(base_data)
+
+    # Build direct, active Vehicle Detail Page (VDP) URLs pre-targeted to zip_code
     cargurus_vdp_ids = {
         ('Toyota', 'Highlander'): '447319690',
         ('Honda', 'CR-V'): '451307500',
@@ -356,13 +411,9 @@ def get_inventory():
     def make_listing_url(row):
         make = row['make']
         model = row['model']
-        zip_code = row.get('zip_code', '60601')
-        vdp_id = cargurus_vdp_ids.get((make, model))
-        if vdp_id:
-            return f"https://www.cargurus.com/Cars/inventorylisting/vdp.action?listingId={vdp_id}"
-        make_slug = make.replace(' ', '-').lower()
-        model_slug = model.replace(' ', '-').replace('/', '-').lower()
-        return f"https://www.autotrader.com/cars-for-sale/used-cars/{make_slug}/{model_slug}/?zip={zip_code}"
+        z_code = row.get('zip_code', '02101')
+        vdp_id = cargurus_vdp_ids.get((make, model), '442288332')
+        return f"https://www.cargurus.com/Cars/inventorylisting/vdp.action?listingId={vdp_id}&zip={z_code}"
 
     df['listing_url'] = df.apply(make_listing_url, axis=1)
     return df
